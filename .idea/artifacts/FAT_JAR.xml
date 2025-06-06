@@ -1,0 +1,6 @@
+<component name="ArtifactManager">
+  <artifact type="jar" name="FAT JAR">
+    <output-path>$PROJECT_DIR$/out/artifacts/FAT_JAR</output-path>
+    <root id="archive" name="FAT JAR.jar" />
+  </artifact>
+</component>

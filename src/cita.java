@@ -1,8 +1,17 @@
-import java.util.ArrayList;
+/**public class cita {
+}*/
+
+
+import java.io.*;
+        import java.util.ArrayList;
 import java.util.List;
 import java.util.Scanner;
 
-class Admin {
+
+public class cita {
+}
+class Admin implements Serializable {
+    private static final long serialVersionUID = 1L;
     private String username;
     private String password;
 
@@ -15,7 +24,8 @@ class Admin {
     public String getPassword() { return password; }
 }
 
-class Doctor {
+class Doctor implements Serializable {
+    private static final long serialVersionUID = 1L;
     private int id;
     private String name;
     private String specialty;
@@ -32,7 +42,8 @@ class Doctor {
     public String getSpecialty() { return specialty; }
 }
 
-class Patient {
+class Patient implements Serializable {
+    private static final long serialVersionUID = 1L;
     private int id;
     private String name;
     private static int nextId = 1;
@@ -46,7 +57,8 @@ class Patient {
     public String getName() { return name; }
 }
 
-class Appointment {
+class Appointment implements Serializable {
+    private static final long serialVersionUID = 1L;
     private String date;
     private String time;
     private Doctor doctor;
@@ -66,17 +78,61 @@ class Appointment {
 }
 
 public class Consultorio {
+    private static final String DB_DIR = "db";
+    private static final String ADMINS_FILE = DB_DIR + "/admins.dat";
+    private static final String DOCTORS_FILE = DB_DIR + "/doctors.dat";
+    private static final String PATIENTS_FILE = DB_DIR + "/patients.dat";
+    private static final String APPOINTMENTS_FILE = DB_DIR + "/appointments.dat";
+
     private List<Admin> admins;
     private List<Doctor> doctors;
     private List<Patient> patients;
     private List<Appointment> appointments;
 
     public Consultorio() {
-        admins = new ArrayList<>();
-        doctors = new ArrayList<>();
-        patients = new ArrayList<>();
-        appointments = new ArrayList<>();
-        admins.add(new Admin("admin", "1234")); // Admin predeterminado
+        createDbDirectory();
+        admins = loadData(ADMINS_FILE);
+        doctors = loadData(DOCTORS_FILE);
+        patients = loadData(PATIENTS_FILE);
+        appointments = loadData(APPOINTMENTS_FILE);
+
+        if (admins.isEmpty()) {
+            admins.add(new Admin("admin", "1234"));
+            saveData(ADMINS_FILE, admins);
+        }
+        updateNextIds();
+    }
+
+    private void createDbDirectory() {
+        File dbDir = new File(DB_DIR);
+        if (!dbDir.exists()) {
+            dbDir.mkdir();
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private <T> List<T> loadData(String filename) {
+        try (ObjectInputStream ois = new ObjectInputStream(new FileInputStream(filename))) {
+            return (List<T>) ois.readObject();
+        } catch (FileNotFoundException e) {
+            return new ArrayList<>();
+        } catch (IOException | ClassNotFoundException e) {
+            System.out.println("Error cargando datos: " + e.getMessage());
+            return new ArrayList<>();
+        }
+    }
+
+    private <T> void saveData(String filename, List<T> data) {
+        try (ObjectOutputStream oos = new ObjectOutputStream(new FileOutputStream(filename))) {
+            oos.writeObject(data);
+        } catch (IOException e) {
+            System.out.println("Error guardando datos: " + e.getMessage());
+        }
+    }
+
+    private void updateNextIds() {
+        Doctor.nextId = doctors.stream().mapToInt(Doctor::getId).max().orElse(0) + 1;
+        Patient.nextId = patients.stream().mapToInt(Patient::getId).max().orElse(0) + 1;
     }
 
     public static void main(String[] args) {
@@ -84,7 +140,7 @@ public class Consultorio {
         Scanner scanner = new Scanner(System.in);
 
         System.out.println("Bienvenido al programa de Administración de Citas");
-        System.out.println("*****////Iniciar sesión////*****");
+        System.out.println("*****Iniciar sesión*****");
 
         boolean isLoggedIn = false;
         while (!isLoggedIn) {
@@ -102,7 +158,7 @@ public class Consultorio {
         boolean exit = false;
         while (!exit) {
             System.out.println("\nMenú Principal:");
-            System.out.println("1. *******Dar de alta doctor");
+            System.out.println("1. Dar de alta doctor");
             System.out.println("2. Dar de alta paciente");
             System.out.println("3. Crear cita");
             System.out.println("4. Listar doctores");
@@ -112,7 +168,7 @@ public class Consultorio {
             System.out.print("Seleccione una opción: ");
 
             int opcion = scanner.nextInt();
-            scanner.nextLine(); // Limpiar buffer
+            scanner.nextLine();
 
             switch (opcion) {
                 case 1:
@@ -145,12 +201,9 @@ public class Consultorio {
     }
 
     private boolean login(String username, String password) {
-        for (Admin admin : admins) {
-            if (admin.getUsername().equals(username) && admin.getPassword().equals(password)) {
-                return true;
-            }
-        }
-        return false;
+        return admins.stream()
+                .anyMatch(admin -> admin.getUsername().equals(username) &&
+                        admin.getPassword().equals(password));
     }
 
     private void addDoctor(Scanner scanner) {
@@ -159,16 +212,20 @@ public class Consultorio {
         System.out.print("Ingrese la especialidad: ");
         String specialty = scanner.nextLine();
 
-        doctors.add(new Doctor(name, specialty));
-        System.out.println("Doctor registrado con éxito. ID: " + doctors.get(doctors.size()-1).getId());
+        Doctor doctor = new Doctor(name, specialty);
+        doctors.add(doctor);
+        saveData(DOCTORS_FILE, doctors);
+        System.out.println("Doctor registrado con éxito. ID: " + doctor.getId());
     }
 
     private void addPatient(Scanner scanner) {
         System.out.print("Ingrese el nombre del paciente: ");
         String name = scanner.nextLine();
 
-        patients.add(new Patient(name));
-        System.out.println("Paciente registrado con éxito. ID: " + patients.get(patients.size()-1).getId());
+        Patient patient = new Patient(name);
+        patients.add(patient);
+        saveData(PATIENTS_FILE, patients);
+        System.out.println("Paciente registrado con éxito. ID: " + patient.getId());
     }
 
     private void createAppointment(Scanner scanner) {
@@ -178,59 +235,59 @@ public class Consultorio {
         }
 
         System.out.println("\nDoctores disponibles:");
-        for (Doctor doctor : doctors) {
-            System.out.println("ID: " + doctor.getId() + " | Dr. " + doctor.getName() + " (" + doctor.getSpecialty() + ")");
-        }
+        doctors.forEach(doctor ->
+                System.out.println("ID: " + doctor.getId() + " | Dr. " +
+                        doctor.getName() + " (" + doctor.getSpecialty() + ")"));
 
-        int doctorId;
-        do {
-            System.out.print("Seleccione el ID del doctor: ");
-            doctorId = scanner.nextInt();
-            if (getDoctorById(doctorId) == null) {
-                System.out.println("Doctor no encontrado. Intente nuevamente.");
-            }
-        } while (getDoctorById(doctorId) == null);
-
-        System.out.println("\nPacientes disponibles:");
-        for (Patient patient : patients) {
-            System.out.println("ID: " + patient.getId() + " | " + patient.getName());
-        }
-
-        int patientId;
-        do {
-            System.out.print("Seleccione el ID del paciente: ");
-            patientId = scanner.nextInt();
-            if (getPatientById(patientId) == null) {
-                System.out.println("Paciente no encontrado. Intente nuevamente.");
-            }
-        } while (getPatientById(patientId) == null);
-
-        scanner.nextLine(); // Limpiar buffer
+        Doctor doctor = selectDoctor(scanner);
+        Patient patient = selectPatient(scanner);
 
         System.out.print("Ingrese fecha (dd/mm/yyyy): ");
         String date = scanner.nextLine();
         System.out.print("Ingrese hora (HH:mm): ");
         String time = scanner.nextLine();
 
-        Doctor selectedDoctor = getDoctorById(doctorId);
-        Patient selectedPatient = getPatientById(patientId);
-
-        appointments.add(new Appointment(date, time, selectedDoctor, selectedPatient));
+        appointments.add(new Appointment(date, time, doctor, patient));
+        saveData(APPOINTMENTS_FILE, appointments);
         System.out.println("Cita programada con éxito.");
     }
 
-    private Doctor getDoctorById(int id) {
-        for (Doctor doctor : doctors) {
-            if (doctor.getId() == id) return doctor;
-        }
-        return null;
+    private Doctor selectDoctor(Scanner scanner) {
+        Doctor doctor;
+        do {
+            System.out.print("Seleccione el ID del doctor: ");
+            int doctorId = scanner.nextInt();
+            scanner.nextLine();
+            doctor = doctors.stream()
+                    .filter(d -> d.getId() == doctorId)
+                    .findFirst()
+                    .orElse(null);
+            if (doctor == null) {
+                System.out.println("Doctor no encontrado. Intente nuevamente.");
+            }
+        } while (doctor == null);
+        return doctor;
     }
 
-    private Patient getPatientById(int id) {
-        for (Patient patient : patients) {
-            if (patient.getId() == id) return patient;
-        }
-        return null;
+    private Patient selectPatient(Scanner scanner) {
+        Patient patient;
+        System.out.println("\nPacientes disponibles:");
+        patients.forEach(p ->
+                System.out.println("ID: " + p.getId() + " | " + p.getName()));
+
+        do {
+            System.out.print("Seleccione el ID del paciente: ");
+            int patientId = scanner.nextInt();
+            scanner.nextLine();
+            patient = patients.stream()
+                    .filter(p -> p.getId() == patientId)
+                    .findFirst()
+                    .orElse(null);
+            if (patient == null) {
+                System.out.println("Paciente no encontrado. Intente nuevamente.");
+            }
+        } while (patient == null);
+        return patient;
     }
 
     private void listDoctors() {
@@ -239,9 +296,9 @@ public class Consultorio {
             return;
         }
         System.out.println("\nLista de Doctores:");
-        for (Doctor doctor : doctors) {
-            System.out.println("ID: " + doctor.getId() + " | Nombre: " + doctor.getName() + " | Especialidad: " + doctor.getSpecialty());
-        }
+        doctors.forEach(doctor ->
+                System.out.println("ID: " + doctor.getId() + " | Nombre: " +
+                        doctor.getName() + " | Especialidad: " + doctor.getSpecialty()));
     }
 
     private void listPatients() {
@@ -250,9 +307,8 @@ public class Consultorio {
             return;
         }
         System.out.println("\nLista de Pacientes:");
-        for (Patient patient : patients) {
-            System.out.println("ID: " + patient.getId() + " | Nombre: " + patient.getName());
-        }
+        patients.forEach(patient ->
+                System.out.println("ID: " + patient.getId() + " | Nombre: " + patient.getName()));
     }
 
     private void listAppointments() {
@@ -261,12 +317,9 @@ public class Consultorio {
             return;
         }
         System.out.println("\nLista de Citas:");
-        int count = 1;
-        for (Appointment appointment : appointments) {
-            System.out.println(count + ". Fecha: " + appointment.getDate() + " | Hora: " + appointment.getTime() +
-                    " | Doctor: " + appointment.getDoctor().getName() +
-                    " | Paciente: " + appointment.getPatient().getName());
-            count++;
-        }
+        appointments.forEach(app ->
+                System.out.println("Fecha: " + app.getDate() + " | Hora: " + app.getTime() +
+                        " | Doctor: " + app.getDoctor().getName() +
+                        " | Paciente: " + app.getPatient().getName()));
     }
 }
